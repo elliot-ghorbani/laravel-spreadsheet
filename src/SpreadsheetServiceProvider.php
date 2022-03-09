@@ -36,10 +36,5 @@ class SpreadsheetServiceProvider extends ServiceProvider
         ]);
 
         $this->loadTranslationsFrom(__DIR__.'/lang', 'spreadsheet');
-
-
-//        $this->publishes([
-//            __DIR__.'/../lang' => $this->app->langPath('vendor/courier'),
-//        ]);
     }
 }
