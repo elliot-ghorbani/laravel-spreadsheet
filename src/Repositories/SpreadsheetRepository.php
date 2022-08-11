@@ -2,14 +2,15 @@
 
 namespace ElliotGhorbani\LaravelSpreadsheet\Repositories;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Response;
+use ElliotGhorbani\LaravelSpreadsheet\Contracts\HasCustomExportAvailableColumns;
+use ElliotGhorbani\LaravelSpreadsheet\Exceptions\DestroySpreadsheetException;
+use ElliotGhorbani\LaravelSpreadsheet\Exceptions\StoreSpreadsheetException;
+use ElliotGhorbani\LaravelSpreadsheet\Exceptions\UpdateSpreadsheetException;
+use ElliotGhorbani\LaravelSpreadsheet\Models\Spreadsheet;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use ElliotGhorbani\LaravelSpreadsheet\Contracts\HasCustomExportAvailableColumns;
-use ElliotGhorbani\LaravelSpreadsheet\Models\Spreadsheet;
 
 class SpreadsheetRepository
 {
@@ -26,18 +27,11 @@ class SpreadsheetRepository
             $this->prepareExportData($data);
 
             $item = Spreadsheet::create($data);
-        } catch (\Exception $e) {
+        } catch (\Exception $exception) {
             DB::rollBack();
-            Log::error('store Spreadsheet Error : ' . $e->getMessage());
+            Log::error('LaravelSpreadsheet: ' . $exception->getMessage());
 
-            return [
-                'error' => true,
-                'message' => __(
-                    'spreadsheet::exceptions.system_cant_action',
-                    ['action' => __('spreadsheet::exceptions.create'), 'modelName' => __('spreadsheet::exceptions.spreadsheet')]
-                ),
-                'status' => Response::HTTP_BAD_REQUEST,
-            ];
+            throw new StoreSpreadsheetException();
         }
 
         DB::commit();
@@ -62,37 +56,32 @@ class SpreadsheetRepository
             $spreadsheet->{Spreadsheet::EXPORT_DATA} = $data[Spreadsheet::EXPORT_DATA];
             $spreadsheet->{Spreadsheet::IMPORT_DATA} = $data[Spreadsheet::IMPORT_DATA];
             $spreadsheet->save();
-        } catch (\Exception $e) {
+
+            DB::commit();
+        } catch (\Exception $exception) {
             DB::rollBack();
-            Log::error('update Spreadsheet Error : ' . $e->getMessage());
+            Log::error('LaravelSpreadsheet: ' . $exception->getMessage());
 
-            return [
-                'error' => true,
-                'message' => __(
-                    'spreadsheet::exceptions.system_cant_action',
-                    ['action' => __('spreadsheet::exceptions.update'), 'modelName' => __('spreadsheet::exceptions.spreadsheet')]
-                ),
-                'status' => Response::HTTP_BAD_REQUEST,
-            ];
+            throw new UpdateSpreadsheetException();
         }
-
-        DB::commit();
 
         return $spreadsheet;
     }
 
     /**
-     * @param Model $modelObject Object.
+     * @param Spreadsheet $modelObject Object.
      *
-     * @return mixed
+     * @return void
      */
-    public function delete(Model $modelObject): mixed
+    public function delete(Spreadsheet $modelObject): void
     {
-        $query = Spreadsheet::query();
+        try {
+            $modelObject->delete();
+        } catch (\Exception $exception) {
+            Log::error('LaravelSpreadsheet: ' . $exception->getMessage());
 
-        $model = $query->findOrFail($modelObject->{Spreadsheet::ID});
-
-        return $model->delete();
+            throw new DestroySpreadsheetException();
+        }
     }
 
     /**
@@ -159,8 +148,7 @@ class SpreadsheetRepository
      */
     public function getColumns(string $table): array
     {
-        // doctrine does not support enum data type, we have to cast it as string
-        DB::getDoctrineSchemaManager()->getDatabasePlatform()->registerDoctrineTypeMapping('enum', 'string');
+        $this->castEnumToString();
 
         $tableModelMap = config('spreadsheet.table_model_map');
 
@@ -183,8 +171,7 @@ class SpreadsheetRepository
      */
     public function getFilterColumns(string $table): array
     {
-        // doctrine does not support enum data type, we have to cast it as string
-        DB::getDoctrineSchemaManager()->getDatabasePlatform()->registerDoctrineTypeMapping('enum', 'string');
+        $this->castEnumToString();
 
         $tableModelMap = config('spreadsheet.table_model_map');
 
@@ -203,5 +190,15 @@ class SpreadsheetRepository
         }
 
         return $columnTypes;
+    }
+
+    /**
+     * @return void
+     * @throws \Doctrine\DBAL\Exception
+     */
+    protected function castEnumToString(): void
+    {
+        // doctrine does not support enum data type, we have to cast it as string
+        DB::getDoctrineConnection()->getDatabasePlatform()->registerDoctrineTypeMapping('enum', 'string');
     }
 }

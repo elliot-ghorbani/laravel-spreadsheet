@@ -3,14 +3,11 @@
 namespace ElliotGhorbani\LaravelSpreadsheet\Models;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use ElliotGhorbani\LaravelSpreadsheet\Services\Export;
 
 class Spreadsheet extends Model
 {
-    use HasFactory;
-
     const TABLE = 'spreadsheets';
 
     const ID = 'id';
@@ -52,8 +49,8 @@ class Spreadsheet extends Model
      * @var array
      */
     protected $casts = [
-        self::EXPORT_DATA => 'array',
-        self::IMPORT_DATA => 'array',
+        self::EXPORT_DATA => 'json',
+        self::IMPORT_DATA => 'json',
     ];
 
     /**

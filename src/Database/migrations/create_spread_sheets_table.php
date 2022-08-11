@@ -5,8 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use ElliotGhorbani\LaravelSpreadsheet\Models\Spreadsheet;
 
-class CreateSpreadsheetsTable extends Migration
-{
+return new class () extends Migration {
     /**
      * Run the migrations.
      *
@@ -32,4 +31,4 @@ class CreateSpreadsheetsTable extends Migration
     {
         Schema::dropIfExists(config('spreadsheet.spreadsheet_table'));
     }
-}
+};

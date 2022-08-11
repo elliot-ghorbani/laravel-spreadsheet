@@ -2,19 +2,20 @@
 
 namespace ElliotGhorbani\LaravelSpreadsheet\Controllers;
 
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Http\Response;
-use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Log;
+use ElliotGhorbani\LaravelSpreadsheet\Exceptions\ExportSpreadsheetException;
+use ElliotGhorbani\LaravelSpreadsheet\Exceptions\ImportSpreadsheetException;
 use ElliotGhorbani\LaravelSpreadsheet\Models\Spreadsheet;
 use ElliotGhorbani\LaravelSpreadsheet\Repositories\SpreadsheetRepository;
 use ElliotGhorbani\LaravelSpreadsheet\Requests\SpreadsheetRequest;
 use ElliotGhorbani\LaravelSpreadsheet\Requests\TableRequest;
 use ElliotGhorbani\LaravelSpreadsheet\Resources\SpreadsheetResource;
 use ElliotGhorbani\LaravelSpreadsheet\Services\Export;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Http\Response;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Log;
 
 class SpreadsheetController extends Controller
 {
@@ -32,14 +33,12 @@ class SpreadsheetController extends Controller
     }
 
     /**
-     * @param Request           $request Request.
-     *
      * @return AnonymousResourceCollection
      */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(): AnonymousResourceCollection
     {
         return SpreadsheetResource::collection(
-            Spreadsheet::filter()->paginate($this->getPageSize($request))
+            Spreadsheet::query()->paginate()
         );
     }
 
@@ -50,11 +49,7 @@ class SpreadsheetController extends Controller
      */
     public function store(SpreadsheetRequest $request): JsonResponse|SpreadsheetResource
     {
-         $result = $this->repository->store($request->validated());
-
-        if (isset($result['error'])) {
-            return $this->getResponse(['message' => $result['message']], $result['status']);
-        }
+        $result = $this->repository->store($request->validated());
 
         return new SpreadsheetResource($result);
     }
@@ -77,14 +72,7 @@ class SpreadsheetController extends Controller
      */
     public function update(SpreadsheetRequest $request, Spreadsheet $spreadsheet): JsonResponse|SpreadsheetResource
     {
-        $result = $this->repository->update(
-            $spreadsheet,
-            $request->validated()
-        );
-
-        if (isset($result['error'])) {
-            return $this->getResponse(['message' => $result['message']], $result['status']);
-        }
+        $result = $this->repository->update($spreadsheet, $request->validated());
 
         return new SpreadsheetResource($result);
     }
@@ -96,36 +84,9 @@ class SpreadsheetController extends Controller
      */
     public function destroy(Spreadsheet $spreadsheet): JsonResponse
     {
-        try {
-            $this->repository->delete($spreadsheet);
+        $this->repository->delete($spreadsheet);
 
-            return $this->getResponse([], Response::HTTP_NO_CONTENT);
-        } catch (\Exception $exception) {
-            Log::error('Delete Spreadsheet Export Error : ' . $exception->getMessage());
-
-            return $this->getResponse(
-                ['message' => __(
-                    'spreadsheet::exceptions.system_cant_action',
-                    ['action' => __('spreadsheet::exceptions.delete'), 'modelName' => __('spreadsheet::exceptions.spreadsheet')]
-                )],
-                Response::HTTP_CONFLICT
-            );
-        }
-    }
-
-    /**
-     * @param Request $request Request
-     *
-     * @return int
-     */
-    protected function getPageSize(Request $request): int
-    {
-        $pageSize = 10;
-        if ($request->filled('per_page')) {
-            $pageSize = (int)$request->get('per_page');
-        }
-
-        return $pageSize;
+        return response()->json([], Response::HTTP_NO_CONTENT);
     }
 
     /**
@@ -135,9 +96,9 @@ class SpreadsheetController extends Controller
      */
     public function getTables(): JsonResource
     {
-        $allTables = $this->repository->getAllTables();
-
-        return JsonResource::make($allTables);
+        return JsonResource::make(
+            $this->repository->getAllTables()
+        );
     }
 
     /**
@@ -175,8 +136,8 @@ class SpreadsheetController extends Controller
      *
      * @return JsonResponse|\Symfony\Component\HttpFoundation\StreamedResponse
      *
-     * @throws \Psr\Container\ContainerExceptionInterface
-     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse
+     * @throws ExportSpreadsheetException
      */
     public function export(Spreadsheet $spreadsheet)
     {
@@ -193,12 +154,9 @@ class SpreadsheetController extends Controller
 
             return $export->download();
         } catch (\Exception $exception) {
-            Log::error('Export Spreadsheet Error : ' . $exception->getMessage());
+            Log::error('LaravelSpreadsheet: ' . $exception->getMessage());
 
-            return $this->getResponse(
-                ['message' => __('spreadsheet::error.spreadsheet_export')],
-                Response::HTTP_CONFLICT
-            );
+            throw new ExportSpreadsheetException();
         }
     }
 
@@ -212,34 +170,9 @@ class SpreadsheetController extends Controller
         try {
             //TODO: Implement import csv
         } catch (\Exception $exception) {
-            Log::error('Import Spreadsheet Error : ' . $exception->getMessage());
+            Log::error('LaravelSpreadsheet: ' . $exception->getMessage());
 
-            return $this->getResponse(
-                ['message' => __('spreadsheet::exception.spreadsheet_import')],
-                Response::HTTP_CONFLICT
-            );
+            throw new ImportSpreadsheetException();
         }
-    }
-
-    /**
-     * @param array|null $content    Content.
-     * @param integer    $statusCode Status Code.
-     * @param array|null $heathers   Headers.
-     *
-     * @return JsonResponse
-     */
-    protected function getResponse(
-        ?array $content = null,
-        int $statusCode = Response::HTTP_OK,
-        ?array $heathers = []
-    ): JsonResponse {
-        if (
-            isset($content['message']) &&
-            !in_array(env('APP_ENV'), ['local', 'development', 'testing'])
-        ) {
-            unset($content['message']);
-        }
-
-        return response()->json(['data' => $content], $statusCode, $heathers);
     }
 }
