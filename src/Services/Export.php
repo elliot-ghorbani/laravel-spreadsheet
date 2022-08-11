@@ -47,7 +47,7 @@ class Export
 
         $this->columnTypes = (new SpreadsheetRepository)->getFilterColumns($this->table);
 
-        $this->delimiter = config('spreadsheet.csv_delimiter');
+        $this->delimiter = config('spreadsheet.csv_delimiter', ',');
     }
 
     /**

@@ -5,7 +5,7 @@ use ElliotGhorbani\LaravelSpreadsheet\Models\Spreadsheet;
 return [
     'spreadsheet_table' => Spreadsheet::TABLE,
 
-    'middlewares' => ['api', 'auth:api'],
+    'middlewares' => ['api'],
 
     'prefix' => 'api',
 
