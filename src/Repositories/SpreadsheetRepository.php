@@ -3,6 +3,7 @@
 namespace ElliotGhorbani\LaravelSpreadsheet\Repositories;
 
 use ElliotGhorbani\LaravelSpreadsheet\Contracts\HasCustomExportAvailableColumns;
+use ElliotGhorbani\LaravelSpreadsheet\Contracts\HasCustomExportAvailableFilterColumns;
 use ElliotGhorbani\LaravelSpreadsheet\Exceptions\DestroySpreadsheetException;
 use ElliotGhorbani\LaravelSpreadsheet\Exceptions\StoreSpreadsheetException;
 use ElliotGhorbani\LaravelSpreadsheet\Exceptions\UpdateSpreadsheetException;
@@ -138,6 +139,20 @@ class SpreadsheetRepository
             $allTables
         );
 
+        $hiddenTables = (array)config('spreadsheet.hidden_tables');
+        if (count($hiddenTables)) {
+            $allTables = array_filter(
+                $allTables,
+                function ($value) use ($hiddenTables) {
+                    if (in_array($value, $hiddenTables)) {
+                        return false;
+                    }
+
+                    return true;
+                },
+            );
+        }
+
         return $allTables;
     }
 
@@ -177,7 +192,7 @@ class SpreadsheetRepository
 
         if (
             isset($tableModelMap[$table])
-            && is_subclass_of($tableModelMap[$table], HasCustomExportAvailableColumns::class)
+            && is_subclass_of($tableModelMap[$table], HasCustomExportAvailableFilterColumns::class)
         ) {
             $columns = $tableModelMap[$table]::getSpreadsheetExportAvailableFilterColumns();
         } else {

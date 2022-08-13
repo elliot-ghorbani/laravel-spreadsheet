@@ -15,4 +15,6 @@ return [
         //example:
         //'users' => 'App\Models\User\User',
     ],
+
+    'hidden_tables' => [],
 ];
